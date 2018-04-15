@@ -1,0 +1,137 @@
+def get_language(page):
+    res = re.search('[a-z][a-z].wikipedia.org',page)
+    if res:
+        return res[0][0:2]
+    return 'na'
+
+train['lang'] = train.Page.map(get_language)
+
+
+days = [r for r in range(sums['en'].shape[0])]
+
+English: Views per dy max around 400th
+
+
+Periodic features - Spanish data has the strongest periodic features
+
+Plot views per page
+figure = plt.figure(1,figsize=[15,5])
+plt.title(labels[key])
+plt.plot(days,sums[key],label = labels[key] )
+
+
+    fig = plt.figure(2,figsize=[15,5])
+    
+    Fourier (sum [])
+    ######sqr_root(real_x ^2 + imag_x^2 for all x in fft(sums[keys]))
+    fft_complex = fft(sums[key])
+    fft_mag = [np.sqrt(np.real(x)*np.real(x)+np.imag(x)*np.imag(x)) for x in fft_complex]
+    
+    
+    fft_xvals = [day / days[-1] for day in days]
+    npts = len(fft_xvals) // 2 + 1
+    
+    
+    fft_mag = fft_mag[:npts]
+    fft_xvals = fft_xvals[:npts]
+    
+    Fs = 150.0;  # sampling rate
+    Ts = 1.0/Fs; # sampling interval
+    t = np.arange(0,1,Ts) # time vector
+
+ff = 5;   # frequency of the signal
+y = np.sin(2*np.pi*ff*t)
+
+n = len(y) # length of the signal
+k = np.arange(n)
+T = n/Fs
+frq = k/T # two sides frequency range
+frq = frq[range(n/2)] # one side frequency range
+
+Y = np.fft.fft(y)/n # fft computing and normalization
+Y = Y[range(n/2)]
+
+fig, ax = plt.subplots(2, 1)
+ax[0].plot(t,y)
+ax[0].set_xlabel('Time')
+ax[0].set_ylabel('Amplitude')
+ax[1].plot(frq,abs(Y),'r') # plotting the spectrum
+ax[1].set_xlabel('Freq (Hz)')
+ax[1].set_ylabel('|Y(freq)|')
+
+plot_url = py.plot_mpl(fig, filename='mpl-basic-fft')
+    
+    
+    To deal with extremely short spikes, which we almost certainly won't be able to predict, 
+    something like a median filter can be used to remove them.
+    
+    
+    he autocorrelation and partial autocorrelation for the most-viewed page for each language. Both of these show 
+    correlations of the signal with a delayed version of itself.
+    At each lag, the partial autocorrelation tries to show the correlation at that lag after removing correlations 
+    at shorter lags.
+    
+    from statsmodels.tsa.stattools import pacf
+from statsmodels.tsa.stattools import acf
+
+for key in top_pages:
+    fig = plt.figure(1,figsize=[10,5])
+    ax1 = fig.add_subplot(121)
+    ax2 = fig.add_subplot(122)
+    cols = train.columns[1:-1]
+    data = np.array(train.loc[top_pages[key],cols])
+    data_diff = [data[i] - data[i-1] for i in range(1,len(data))]
+    autocorr = acf(data_diff)
+    pac = pacf(data_diff)
+
+    x = [x for x in range(len(pac))]
+    ax1.plot(x[1:],autocorr[1:])
+
+    ax2.plot(x[1:],pac[1:])
+    ax1.set_xlabel('Lag')
+    ax1.set_ylabel('Autocorrelation')
+    ax1.set_title(train.loc[top_pages[key],'Page'])
+
+    ax2.set_xlabel('Lag')
+    ax2.set_ylabel('Partial Autocorrelation')
+    plt.show()
+    
+    
+    
+    
+    
+    Statsmodels also includes things like ARMA and ARIMA models that can be used to make predictions from time series. This data is not necessarily very stationary and often has strong periodic effects, so these may not necessarily work very well. I'll look at ARIMA predictions for the same set of very high viewcount pages.
+    
+    
+    
+    from statsmodels.tsa.arima_model import ARIMA
+import warnings
+
+cols = train.columns[1:-1]
+for key in top_pages:
+    data = np.array(train.loc[top_pages[key],cols],'f')
+    result = None
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore')
+        try:
+            arima = ARIMA(data,[2,1,4])
+            result = arima.fit(disp=False)
+        except:
+            try:
+                arima = ARIMA(data,[2,1,2])
+                result = arima.fit(disp=False)
+            except:
+                print(train.loc[top_pages[key],'Page'])
+                print('\tARIMA failed')
+    #print(result.params)
+    pred = result.predict(2,599,typ='levels')
+    x = [i for i in range(600)]
+    i=0
+
+    plt.plot(x[2:len(data)],data[2:] ,label='Data')
+    plt.plot(x[2:],pred,label='ARIMA Model')
+    plt.title(train.loc[top_pages[key],'Page'])
+    plt.xlabel('Days')
+    plt.ylabel('Views')
+    plt.legend()
+    plt.show()
